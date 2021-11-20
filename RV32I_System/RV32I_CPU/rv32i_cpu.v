@@ -183,6 +183,10 @@ module aludec(input      [6:0] opcode,
 		begin
 			case(funct3)
 			 3'b000:  alucontrol <= #`simdelay 5'b00000; // addition (addi)
+       
+       // ##### 노정훈 : Start #####
+       3'b001:  alucontrol <= #`simdelay 5'b00100; // ssli (slli)
+       // ##### 노정훈 : End   #####
        3'b100:  alucontrol <= #`simdelay 5'b00011; // xor (xori)
 			 3'b110:  alucontrol <= #`simdelay 5'b00010; // or (ori)
 			 3'b111:  alucontrol <= #`simdelay 5'b00001; // and (andi)

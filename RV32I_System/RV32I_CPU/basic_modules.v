@@ -306,3 +306,21 @@ module mux2 #(parameter WIDTH = 8)
   assign #`simdelay y = s ? d1 : d0; 
 
 endmodule
+
+// ##### 노정훈 : Start #####
+
+module D_FF (input clk, D, en
+						 output Q);
+	reg Q;
+
+	wire enabled_clk;
+
+	assign enabled_clk = clk & en;
+
+	always@(posedge enabled_clk)	
+	begin
+		Q <= D;
+	end
+endmodule
+
+// ##### 노정훈 : End #####

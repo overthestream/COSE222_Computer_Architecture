@@ -26,11 +26,33 @@ module rv32i_cpu (
 
   assign Memwrite = memwrite ;
 
+  // ##### 노정훈 : Start #####
+
+  wire [31:0] pc_if, inst_if, pc_id, inst_id;
+
+  assign pc_if = pc;
+  assign inst_if = inst;
+
+  
+
+  IF_ID_FF pl0(
+     .pc   (pc_if),
+     .inst (inst_if),
+     .clk  (clk),
+     .en   (1'b1),
+     .pc_out   (pc_id[31:0]),
+     .inst_out (inst_id[31:0])
+  );
+
+  // ##### 노정훈 : End   #####
+
   // Instantiate Controller
   controller i_controller(
-      .opcode		(inst[6:0]), 
-		.funct7		(inst[31:25]), 
-		.funct3		(inst[14:12]), 
+    // ##### 노정훈 : Start #####
+    .opcode		(inst_id[6:0]), 
+		.funct7		(inst_id[31:25]), 
+		.funct3		(inst_id[14:12]), 
+    // ##### 노정훈 : End   #####
 		.auipc		(auipc),
 		.lui			(lui),
 		.memtoreg	(memtoreg),
@@ -57,7 +79,9 @@ module rv32i_cpu (
 		.jalr				(jalr),
 		.alucontrol		(alucontrol),
 		.pc				(pc),
-		.inst				(inst),
+    // ##### 노정훈 : Start #####
+		.inst				(inst_id),
+    // ##### 노정훈 : End   #####
 		.aluout			(Memaddr), 
 		.MemWdata		(MemWdata),
 		.MemRdata		(MemRdata));

@@ -346,4 +346,6 @@ module IF_ID_FF (input [31:0] pc, inst,
 
 endmodule
 
+module ID_EX_FF (input [31:0] pc, )
+
 // ##### 노정훈 : End #####

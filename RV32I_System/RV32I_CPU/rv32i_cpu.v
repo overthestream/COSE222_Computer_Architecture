@@ -148,7 +148,7 @@ module maindec(input  [6:0] opcode,
       `OP_U_LUI: 		controls <= #`simdelay 9'b0111_0000_0; // LUI
       `OP_J_JAL: 		controls <= #`simdelay 9'b0011_0001_0; // JAL
       
-      `OP_I_JALR: controls  <= #`simdelay 9'b0011_0000_1
+      `OP_I_JALR: controls  <= #`simdelay 9'b0011_0000_1;
 
       default:    	controls <= #`simdelay 9'b0000_0000_0; // ???
     endcase

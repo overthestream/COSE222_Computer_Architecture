@@ -327,7 +327,7 @@ module D_FF #(parameter WIDTH = 8)
 endmodule
 
 module IF_ID_FF (input [31:0] pc, inst,
-								 input clk, en
+								 input clk, en,
 								 output [31:0] inst_out, pc_out)
 	D_FF #(.WIDTH (32)) 
 		pc_FF(
@@ -346,6 +346,60 @@ module IF_ID_FF (input [31:0] pc, inst,
 
 endmodule
 
-module ID_EX_FF (input [31:0] pc, )
+module ID_EX_FF (input  [31:0] pc, imm_u, imm_s, imm_i, rs1, rs2, imm_jal, imm_br
+								 input 	[4:0]  rd,
+								 input  clk, en,
+								 output [31:0] pc_out, imm_u_out, imm_s_out, imm_i_out, rs1_out, rs2_out, imm_jal_out, imm_br_out,
+								 output [4:0]  rd_out)
+	D_FF #(.WIDTH (32)) 
+		pc_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(pc [31:0]),
+			.Q 		(pc_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		rs1_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(rs1 [31:0]),
+			.Q 		(rs1_out [31:0])
+		);
+	D_FF #(.WIDTH (32))
+		rs2_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(rs2 [31:0]),
+			.Q 		(rs2_out [31:0])
+		);
+	D_FF #(.WIDTH (5))
+		rd_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(rd [4:0]),
+			.Q 		(rd_out [4:0])
+		);
+	D_FF #(.WIDTH (32))
+		imm_u_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(imm_u[31:0]),
+			.Q 		(imm_u_out [31:0])
+		);
+	D_FF #(.WIDTH (32))
+		imm_s_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(imm_s [31:0]),
+			.Q 		(imm_s_out [31:0])
+		);
+	D_FF #(.WIDTH (32))
+		imm_i_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(imm_i [31:0]),
+			.Q 		(imm_i_out [31:0])
+		);
+endmodule
 
 // ##### 노정훈 : End #####

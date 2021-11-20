@@ -80,6 +80,7 @@ module rv32i_cpu (
 		.alucontrol		(alucontrol),
 		.pc				(pc),
     // ##### 노정훈 : Start #####
+    .pc_id      (pc_id),
 		.inst				(inst_id),
     // ##### 노정훈 : End   #####
 		.aluout			(Memaddr), 
@@ -257,7 +258,10 @@ module datapath(input         clk, reset,
                 input         jal,
                 input         jalr,
 
-                output reg [31:0] pc,
+                // ##### 노정훈 : Start #####
+                input  [31:0] pc_id,
+                output [31:0] pc,
+                // ##### 노정훈 : End   #####
                 output [31:0] aluout,
                 output [31:0] MemWdata,
                 input  [31:0] MemRdata);
@@ -287,6 +291,17 @@ module datapath(input         clk, reset,
   assign rd  = inst[11:7];
   assign funct3  = inst[14:12];
 
+  // ##### 노정훈 : Start #####
+  wire [31:0] pc_ex, rs1_ex, rs2_ex, immu_ex, imms_ex, immi_ex, se_jal_imm_ex, se_br_imm_ex;
+  wire [4:0] rd_ex;
+
+  reg [31:0] pc_mem_in;
+  wire z_ex;
+  assign z_ex = Zflag;
+  
+  // ##### 노정훈 : End   #####
+
+
   //
   // PC (Program Counter) logic 
   //
@@ -298,23 +313,23 @@ module datapath(input         clk, reset,
   assign blt_taken  =  branch & f3blt & (Nflag != Vflag);
   assign bgeu_taken =  branch & f3bgeu & Cflag;
 
-  assign branch_dest = (pc + se_br_imm);
-  assign jal_dest 	= (pc + se_jal_imm);
+  assign branch_dest = (pc_ex + se_br_imm_ex);
+  assign jal_dest 	= (pc_ex + se_jal_imm_ex);
   assign jalr_dest  = aluout[31:0];
 
   always @(posedge clk, posedge reset)
   begin
-     if (reset)  pc <= 32'b0;
+     if (reset)  pc_mem_in <= 32'b0;
 	  else 
 	  begin
 	      if (beq_taken | blt_taken | bgeu_taken) // branch_taken
-				pc <= #`simdelay branch_dest;
+				pc_mem_in <= #`simdelay branch_dest;
 		   else if (jal) // jal
-				pc <= #`simdelay jal_dest;
+				pc_mem_in <= #`simdelay jal_dest;
        else if (jalr)
-        pc <= #`simdelay jalr_dest;
+        pc_mem_in <= #`simdelay jalr_dest;
 		   else 
-				pc <= #`simdelay (pc + 4);
+				pc_mem_in <= #`simdelay (pc_ex + 4);
 	  end
   end
 
@@ -327,6 +342,33 @@ module datapath(input         clk, reset,
   assign br_imm[12:1] = {inst[31],inst[7],inst[30:25],inst[11:8]};
   assign se_br_imm[31:0] = {{19{br_imm[12]}},br_imm[12:1],1'b0};
 
+
+  // ##### 노정훈 : Start #####
+  ID_EX_FF pl1(
+    .clk      (clk),
+    .en       (1'b1),
+    
+    .pc       (pc_id),
+    .rs1      (rs1_data),
+    .rs2      (rs2_data),
+    .rd       (rd),
+    .imm_u    (auipc_lui_imm),
+    .imm_s    (se_imm_stype),
+    .imm_i    (se_imm_itype),
+    .imm_jal  (se_jal_imm),
+    .imm_br   (se_br_imm),
+
+    .pc_out   (pc_ex),
+    .rs1_out  (rs1_ex),
+    .rs2_out  (rs2_ex),
+    .rd_out   (rd_ex),
+    .imm_u_out (immu_ex),
+    .imm_s_out (imms_ex),
+    .imm_i_out (immi_ex),
+    .imm_jal_out (se_jal_imm_ex),
+    .imm_br_out  (se_br_imm_ex)
+  );
+  // ##### 노정훈 : End   #####
 
 
   // 
@@ -362,18 +404,24 @@ module datapath(input         clk, reset,
 	// 1st source to ALU (alusrc1)
 	always@(*)
 	begin
-		if      (auipc)	alusrc1[31:0]  =  pc;
+    // ##### 노정훈 : Start #####
+		if      (auipc)	alusrc1[31:0]  =  pc_ex;
+    // ##### 노정훈 : End   #####
 		else if (lui) 		alusrc1[31:0]  =  32'b0;
-		else          		alusrc1[31:0]  =  rs1_data[31:0];
+    // ##### 노정훈 : Start #####
+		else          		alusrc1[31:0]  =  rs1_ex[31:0];
+    // ##### 노정훈 : End   #####
 	end
 	
 	// 2nd source to ALU (alusrc2)
 	always@(*)
 	begin
-		if	     (auipc | lui)			alusrc2[31:0] = auipc_lui_imm[31:0];
-		else if (alusrc & memwrite)	alusrc2[31:0] = se_imm_stype[31:0];
-		else if (alusrc)					alusrc2[31:0] = se_imm_itype[31:0];
-		else									alusrc2[31:0] = rs2_data[31:0];
+    // ##### 노정훈 : Start #####
+		if	     (auipc | lui)			alusrc2[31:0] = immu_ex[31:0];
+		else if (alusrc & memwrite)	alusrc2[31:0] = imms_ex[31:0];
+		else if (alusrc)					alusrc2[31:0] = immi_ex[31:0];
+		else									alusrc2[31:0] = rs2_ex[31:0];
+    // ##### 노정훈 : End   #####
 	end
 	
 	assign se_imm_itype[31:0] = {{20{inst[31]}},inst[31:20]};

@@ -57,6 +57,11 @@ module RV32I_System(
   wire clk180;
   wire data_re;
   
+  // ##### 노정훈: Start #####
+  wire [31:0] pc_id, inst_id;
+
+  // ##### 노정훈: End #######
+
   // reset =  BUTTON[0]
   // if BUTTON[0] is pressed, the reset goes down to "0"
   // reset is a low-active signal
@@ -85,7 +90,9 @@ module RV32I_System(
 		.clk			(clk0), 
 		.reset		(~reset_ff),
 		.pc			(fetch_addr),
-		.inst			(inst),
+    // ##### 노정훈 : Start #####
+		.inst			(inst_id[31:0]),
+    // ##### 노정훈 : END   #####
 		.Memwrite	(data_we),  // data_we: active high
 		.Memaddr		(data_addr), 
 		.MemWdata	(write_data),
@@ -110,6 +117,16 @@ module RV32I_System(
 		.q_a         (inst),
 		.q_b         (read_data_mem));
 
+  // ##### 노정훈 : Start #####
+  IF_ID_FF pl0(
+    .pc   (fetch_addr[31:0]),
+    .inst (inst[31:0]),
+    .clk  (clk0),
+    .en   (1'b1),
+    .pc_out   (pc_id[31:0]),
+    .inst_out (inst_id[31:0])
+  );
+  // ##### 노정훈 : End #####
 
   Addr_Decoder iDecoder ( 
 		.Addr        (data_addr),

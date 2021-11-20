@@ -309,9 +309,11 @@ endmodule
 
 // ##### 노정훈 : Start #####
 
-module D_FF (input clk, D, en
-						 output Q);
-	reg Q;
+module D_FF #(parameter WIDTH = 8)
+						(input clk, en
+						 input	[WIDTH-1:0] D,
+						 output	[WIDTH-1:0]	Q);
+	reg [WIDTH-1:0] Q;
 
 	wire enabled_clk;
 
@@ -321,6 +323,27 @@ module D_FF (input clk, D, en
 	begin
 		Q <= D;
 	end
+
+endmodule
+
+module IF_ID_FF (input [31:0] pc, inst,
+								 input clk, en
+								 output [31:0] inst_out, pc_out)
+	D_FF #(.WIDTH (32)) 
+		pc_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(pc [31:0]),
+			.Q 		(pc_out [31:0])
+		);
+	D_FF #(.WIDTH (32))
+		inst_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(inst [31:0]),
+			.Q 		(inst_out [31:0])
+		);
+
 endmodule
 
 // ##### 노정훈 : End #####

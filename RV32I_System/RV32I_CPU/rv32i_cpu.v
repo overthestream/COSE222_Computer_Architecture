@@ -37,7 +37,7 @@ module rv32i_cpu (
   assign inst_if = inst;
 
   wire [4:0] wbreg, wbreg_out;
-
+  wire ex_memread, rd_ex, pc_write, if_id_write, stall_control;
   IF_ID_FF pl0(
      .pc   (pc_if),
      .inst (inst_if),
@@ -61,9 +61,9 @@ module rv32i_cpu (
     .address_out (mem_alu),
     .rd_out     (wbreg_out)
   );
-  wire ex_memread, rd_ex, pc_write, if_id_write, stall_control;
+
   hazard_detection hdu(.ex_memread (ex_memread),
-                       .ex_rd      (.rd_ex),
+                       .ex_rd      (rd_ex),
                        .id_rs1     (inst_if[19:15]),
                        .id_rs2     (inst_if[24:20]),
                        .pc_write   (pc_write),
@@ -122,7 +122,7 @@ module rv32i_cpu (
 		.alumem			(Memaddr), 
     .mem_control(mem_control),
     .jal_wb     (mem_wb_control_out[2]),
-    .ex_memread (ex_memread)
+    .ex_memread (ex_memread),
     // ##### 노정훈 : End   #####
 
 		.MemWdata		(MemWdata),
@@ -294,7 +294,7 @@ module datapath(input         clk, reset,
                 input         memtoreg,
                 input         memwrite,
                 input         alusrc, 
-                input  [4:0]  alucontrol,
+                input  [4:0]  alucontrol, stall_control,
                 input         branch,
                 input         jal,
                 input         jalr,
@@ -304,9 +304,9 @@ module datapath(input         clk, reset,
                 input  [31:0] pc_id, wb_rddata, wb_rdalu, wb_pc,
                 input  [4:0]  wb_rd,
                 output reg [31:0] pc,
-                output ex_memread, stall_control,
+                output ex_memread, 
                 output [31:0] alumem, wb_pc_out,
-                output [4:0]  rd_out, rd_ex
+                output [4:0]  rd_out, rd_ex,
                 output [5:0]  mem_control,
                 // ##### 노정훈 : End   #####
                 output [31:0] MemWdata,
@@ -340,7 +340,7 @@ module datapath(input         clk, reset,
   // ##### 노정훈 : Start #####
   wire [31:0] pc_ex, rs1_ex, rs2_ex, immu_ex, imms_ex, immi_ex, se_jal_imm_ex, se_br_imm_ex;
 
-  assign ex_memread =ID_EX_control_out[9];
+
   reg [31:0] pc_mem_in;
   
   wire [31:0] next_pc_ex, next_pc_mem, alu_ex;
@@ -351,11 +351,12 @@ module datapath(input         clk, reset,
   wire [31:0] branch_mem, jal_mem, jalr_mem;
 
   wire [13:0] ID_EX_control_in, ID_EX_control_out;
+  assign ex_memread =ID_EX_control_out[9];
   assign ID_EX_control_in = {auipc, lui, regwrite, memtoreg, memwrite, alusrc, alucontrol [4:0], branch, jal, jalr};
   
   wire [5:0] EX_MEM_control_in, EX_MEM_control_out;
     
-  assign EX_MEM_control_in = (stall_control) ? {14{1'b1}} : {ID_EX_control_out[11:9],ID_EX_control_out[2:0]} ;
+  assign EX_MEM_control_in = (stall_control) ? {14{1'b0}} : {ID_EX_control_out[11:9],ID_EX_control_out[2:0]} ;
   
   assign mem_control = EX_MEM_control_out;
   // ##### 노정훈 : End   #####
@@ -384,8 +385,8 @@ module datapath(input         clk, reset,
 	  else 
 	  begin
 	    if (beq_taken | blt_taken | bgeu_taken) // branch_taken
-				pc <= #`simdelay branch_mem;
       // ##### 노정훈 : Start   #####
+				pc <= #`simdelay branch_mem;
 		  else if (mem_control[1]) // jal
 				pc <= #`simdelay jal_mem;
       else if (mem_control[0])
@@ -409,6 +410,9 @@ module datapath(input         clk, reset,
 
 
   // ##### 노정훈 : Start #####
+
+  wire [4:0] rsreg1_out, rsreg2_out;
+
   ID_EX_FF pl1(
     .clk      (clk),
     .en       (1'b1),
@@ -423,6 +427,12 @@ module datapath(input         clk, reset,
     .imm_jal  (se_jal_imm),
     .imm_br   (se_br_imm),
     .control  (ID_EX_control_in),
+
+    .rsreg1   (rs1),
+    .rsreg2   (rs2),
+
+    .rsreg1_out (rsreg1_out),
+    .rsreg2_out (rsreg2_out),
 
     .control_out  (ID_EX_control_out),
     .pc_out   (pc_ex),
@@ -497,8 +507,8 @@ module datapath(input         clk, reset,
 
   // ##### 노정훈 : Start #####
   wire fw_rs1_mem, fw_rs2_mem, fw_rs1_wb, fw_rs2_wb;
-  forwarding_unit fu( .ex_rs1 (rs1_ex),
-                      .ex_rs2 (rs2_ex), 
+  forwarding_unit fu( .ex_rs1 (rsreg1_out),
+                      .ex_rs2 (rsreg2_out), 
                       .mem_rd (rd_out),
                       .wb_rd  (wb_rd),
 											.regwrite_mem (EX_MEM_control_out[5]), 

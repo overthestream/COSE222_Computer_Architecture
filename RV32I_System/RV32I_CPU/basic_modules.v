@@ -316,7 +316,7 @@ module D_FF #(parameter WIDTH = 8)
 
 	wire enabled_clk;
 
-	assign enabled_clk = clk & en;
+	assign enabled_clk < clk & en;
 
 	always@(posedge enabled_clk)	
 	begin
@@ -546,35 +546,35 @@ module forwarding_unit(input  [4:0] ex_rs1, ex_rs2, mem_rd, wb_rd,
 			fw_rs1_mem <= 1'b0;
 			fw_rs2_mem <= 1'b1;
 			fw_rs1_wb  <= 1'b0;
-			fw_re2_wb  <= 1'b0;
+			fw_rs2_wb  <= 1'b0;
 		end
 		else if (regwrite_wb & ex_rs1 == wb_rd)
 		begin
 			fw_rs1_mem <= 1'b0;
 			fw_rs2_mem <= 1'b0;
 			fw_rs1_wb  <= 1'b1;
-			fw_re2_wb  <= 1'b0;
+			fw_rs2_wb  <= 1'b0;
 		end
 		else if (regwrite_wb & ex_rs2 == wb_rd)
 		begin
 			fw_rs1_mem <= 1'b0;
 			fw_rs2_mem <= 1'b0;
 			fw_rs1_wb  <= 1'b0;
-			fw_re2_wb  <= 1'b1;
+			fw_rs2_wb  <= 1'b1;
 		end
 		else
 		begin
 			fw_rs1_mem <= 1'b0;
 			fw_rs2_mem <= 1'b0;
 			fw_rs1_wb  <= 1'b0;
-			fw_re2_wb  <= 1'b0;
+			fw_rs2_wb  <= 1'b0;
 		end
 	end
 endmodule
 
 module hazard_detection (input ex_memread,
 												 input [4:0] ex_rd, id_rs1, id_rs2,
-												 output pc_write, if_id_write, stall_control);
+												 output reg pc_write, if_id_write, stall_control);
 												 
 	always@(*)
 	begin

@@ -28,7 +28,7 @@ module rv32i_cpu (
 
   // ##### 노정훈 : Start #####
 
-  wire [31:0] pc_if, inst_if, pc_id, inst_id, mem_alu, mem_read;
+  wire [31:0] pc_if, inst_if, pc_id, inst_id, mem_alu, mem_read, wb_pc_mem, wb_pc_wb;
 
   assign pc_if = pc;
   assign inst_if = inst;
@@ -49,7 +49,9 @@ module rv32i_cpu (
     .read_data  (MemRdata),
     .address    (Memaddr),
     .rd         (wbreg),
+    .wb_pc      (wb_pc_mem),
 
+    .wb_pc_out  (wb_pc_wb),
     .read_data_out (mem_read),
     .address_out (mem_alu),
     .rd_out     (wbreg_out)
@@ -94,11 +96,14 @@ module rv32i_cpu (
     .pc_id      (pc_id),
 		.inst				(inst_id),
     .rd_out     (wbreg),
+    .wb_pc      (wb_pc_wb),
+    .wb_pc_out  (wb_pc_mem),
     .wb_rd      (wbreg_out),
     .wb_rddata  (mem_read),
     .wb_rdalu   (mem_alu),
+		.alumem			(Memaddr), 
     // ##### 노정훈 : End   #####
-		.aluout			(Memaddr), 
+
 		.MemWdata		(MemWdata),
 		.MemRdata		(MemRdata));
 
@@ -274,10 +279,10 @@ module datapath(input         clk, reset,
                 input         jalr,
 
                 // ##### 노정훈 : Start #####
-                input  [31:0] pc_id, wb_rddata, wb_rdalu
+                input  [31:0] pc_id, wb_rddata, wb_rdalu, wb_pc
                 input  [4:0]  wb_rd,
                 output [31:0] pc,
-                output [31:0] alumem,
+                output [31:0] alumem, wb_pc_out
                 output [4:0]  rd_out,
                 // ##### 노정훈 : End   #####
                 output [31:0] MemWdata,
@@ -314,9 +319,9 @@ module datapath(input         clk, reset,
 
   reg [31:0] pc_mem_in;
   
-  wire [31:0] next_pc_ex, next_pc_mem;
+  wire [31:0] next_pc_ex, next_pc_mem, alu_ex;
   assign next_pc_ex = pc_ex+4;
-  
+  assign wb_pc_out = next_pc_mem;
   wire Zflag_mem;
 
   wire [31:0] branch_mem, jal_mem, jalr_mem;
@@ -337,7 +342,7 @@ module datapath(input         clk, reset,
 
   assign branch_dest = (pc_ex + se_br_imm_ex);
   assign jal_dest 	= (pc_ex + se_jal_imm_ex);
-  assign jalr_dest  = aluout[31:0];
+  assign jalr_dest  = alu_ex[31:0];
 
   always @(posedge clk, posedge reset)
   begin
@@ -393,14 +398,14 @@ module datapath(input         clk, reset,
 
   EX_MEM_FF pl2(
     .clk   (clk),
-    .end   (1'b1),
+    .en   (1'b1),
 
     .pc         (next_pc_ex),
     .branch     (branch_dest),
     .jal        (jal_dest),
     .jalr       (jalr_dest),
     .wr_data_in (rs2_ex),
-    .result     (aluout),
+    .result     (alu_ex),
     .rd         (rd_ex),
     .zflag      (Zflag),
 
@@ -425,7 +430,7 @@ module datapath(input         clk, reset,
     .rs1			(rs1),
     .rs2			(rs2),
     .rd			(wb_rd),
-    .rd_data	(wb_rddata),
+    .rd_data	(rd_data),
     .rs1_data	(rs1_data),
     .rs2_data	(rs2_data));
 
@@ -440,7 +445,7 @@ module datapath(input         clk, reset,
 		.a			(alusrc1),
 		.b			(alusrc2),
 		.alucont	(alucontrol),
-		.result	(aluout),
+		.result	(alu_ex),
 		.N			(Nflag),
 		.Z			(Zflag),
 		.C			(Cflag),
@@ -477,9 +482,9 @@ module datapath(input         clk, reset,
 	// Data selection for writing to RF
 	always@(*)
 	begin
-		if	     (jal)			rd_data[31:0] = pc + 4;
-		else if (memtoreg)	rd_data[31:0] = MemRdata;
-		else						rd_data[31:0] = aluout;
+		if	     (jal)			rd_data[31:0] = wb_pc;
+		else if (memtoreg)	rd_data[31:0] = wb_rddata;
+		else						rd_data[31:0] = wb_rdalu;
 	end
 	
 endmodule

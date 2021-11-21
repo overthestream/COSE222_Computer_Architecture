@@ -467,10 +467,10 @@ module EX_MEM_FF (input [31:0] pc, branch, jal, jalr, wr_data_in, result,
 		);
 endmodule
 
-module MEM_WB_FF (input [31:0] read_data, address,
+module MEM_WB_FF (input [31:0] read_data, address, wb_pc,
 									input [4:0]  rd,
 									input clk,
-									output [31:0] read_data_out, address_out,
+									output [31:0] read_data_out, address_out, wb_pc_out, 
 									output [4:0] rd_out
 									)
 	D_FF #(.WIDTH (5))
@@ -493,6 +493,13 @@ module MEM_WB_FF (input [31:0] read_data, address,
 			.en		(en),
 			.D		(address [31:0]),
 			.Q 		(address_out [31:0])
+		);	
+	D_FF #(.WIDTH (32)) 
+		wb_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(wb_pc [31:0]),
+			.Q 		(wb_pc_out [31:0])
 		);	
 endmodule
 // ##### 노정훈 : End #####

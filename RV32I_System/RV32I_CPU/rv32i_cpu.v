@@ -28,8 +28,8 @@ module rv32i_cpu (
 
   // ##### 노정훈 : Start #####
   wire [2:0] mem_wb_control_in, mem_wb_control_out;
-  assign mem_wb_control_in = {mem_control[1], mem_control[5], mem_control[4]};
   wire [5:0] mem_control;
+  assign mem_wb_control_in = {mem_control[1], mem_control[5], mem_control[4]};
   assign Memwrite = mem_control[3] ;
   wire [31:0] pc_if, inst_if, pc_id, inst_id, mem_alu, mem_read, wb_pc_mem, wb_pc_wb;
 
@@ -42,7 +42,7 @@ module rv32i_cpu (
      .pc   (pc_if),
      .inst (inst_if),
      .clk  (clk),
-     .en   (1'b1),
+     .en   (~if_id_write),
      .pc_out   (pc_id[31:0]),
      .inst_out (inst_id[31:0])
   );
@@ -61,6 +61,14 @@ module rv32i_cpu (
     .address_out (mem_alu),
     .rd_out     (wbreg_out)
   );
+  wire ex_memread, rd_ex, pc_write, if_id_write, stall_control;
+  hazard_detection hdu(.ex_memread (ex_memread),
+                       .ex_rd      (.rd_ex),
+                       .id_rs1     (inst_if[19:15]),
+                       .id_rs2     (inst_if[24:20]),
+                       .pc_write   (pc_write),
+                       .if_id_write(if_id_write),
+                       .stall_control (stall_control));
 
   // ##### 노정훈 : End   #####
 
@@ -98,6 +106,9 @@ module rv32i_cpu (
 		.alucontrol		(alucontrol),
 		.pc				(pc),
     // ##### 노정훈 : Start #####
+    .stall_control  (stall_control),
+    .pc_write       (pc_write),
+    .rd_ex          (rd_ex),
 		.memtoreg_wb		(mem_wb_control_out[0]),
 		.regwrite_wb		(mem_wb_control_out[1]),
     .pc_id      (pc_id),
@@ -111,6 +122,7 @@ module rv32i_cpu (
 		.alumem			(Memaddr), 
     .mem_control(mem_control),
     .jal_wb     (mem_wb_control_out[2]),
+    .ex_memread (ex_memread)
     // ##### 노정훈 : End   #####
 
 		.MemWdata		(MemWdata),
@@ -288,12 +300,13 @@ module datapath(input         clk, reset,
                 input         jalr,
 
                 // ##### 노정훈 : Start #####
-                input   jal_wb, memtoreg_wb, regwrite_wb
+                input   jal_wb, memtoreg_wb, regwrite_wb, pc_write,
                 input  [31:0] pc_id, wb_rddata, wb_rdalu, wb_pc,
                 input  [4:0]  wb_rd,
                 output reg [31:0] pc,
+                output ex_memread, stall_control,
                 output [31:0] alumem, wb_pc_out,
-                output [4:0]  rd_out,
+                output [4:0]  rd_out, rd_ex
                 output [5:0]  mem_control,
                 // ##### 노정훈 : End   #####
                 output [31:0] MemWdata,
@@ -326,8 +339,8 @@ module datapath(input         clk, reset,
 
   // ##### 노정훈 : Start #####
   wire [31:0] pc_ex, rs1_ex, rs2_ex, immu_ex, imms_ex, immi_ex, se_jal_imm_ex, se_br_imm_ex;
-  wire [4:0] rd_ex;
 
+  assign ex_memread =ID_EX_control_out[9];
   reg [31:0] pc_mem_in;
   
   wire [31:0] next_pc_ex, next_pc_mem, alu_ex;
@@ -341,7 +354,9 @@ module datapath(input         clk, reset,
   assign ID_EX_control_in = {auipc, lui, regwrite, memtoreg, memwrite, alusrc, alucontrol [4:0], branch, jal, jalr};
   
   wire [5:0] EX_MEM_control_in, EX_MEM_control_out;
-  assign EX_MEM_control_in = {ID_EX_control_out[11:9],ID_EX_control_out[2:0]};
+    
+  assign EX_MEM_control_in = (stall_control) ? {14{1'b1}} : {ID_EX_control_out[11:9],ID_EX_control_out[2:0]} ;
+  
   assign mem_control = EX_MEM_control_out;
   // ##### 노정훈 : End   #####
 
@@ -365,19 +380,21 @@ module datapath(input         clk, reset,
 
   always @(posedge clk, posedge reset)
   begin
-     if (reset)  pc <= 32'b0;
+    if (reset)  pc <= 32'b0;
 	  else 
 	  begin
-	     if (beq_taken | blt_taken | bgeu_taken) // branch_taken
+	    if (beq_taken | blt_taken | bgeu_taken) // branch_taken
 				pc <= #`simdelay branch_mem;
-       // ##### 노정훈 : Start   #####
-		   else if (mem_control[1]) // jal
+      // ##### 노정훈 : Start   #####
+		  else if (mem_control[1]) // jal
 				pc <= #`simdelay jal_mem;
-       else if (mem_control[0])
+      else if (mem_control[0])
         pc <= #`simdelay jalr_mem;
-        // ##### 노정훈 : End   #####
-		   else 
-				pc <= #`simdelay next_pc_mem;
+		  else if (pc_write)
+        pc <= pc;
+      else
+				pc <= #`simdelay pc+4; // next_pc_mem; pc_id+4?
+      // ##### 노정훈 : End   #####
 	  end
   end
 
@@ -478,11 +495,27 @@ module datapath(input         clk, reset,
 		.C			(Cflag),
 		.V			(Vflag));
 
+  // ##### 노정훈 : Start #####
+  wire fw_rs1_mem, fw_rs2_mem, fw_rs1_wb, fw_rs2_wb;
+  forwarding_unit fu( .ex_rs1 (rs1_ex),
+                      .ex_rs2 (rs2_ex), 
+                      .mem_rd (rd_out),
+                      .wb_rd  (wb_rd),
+											.regwrite_mem (EX_MEM_control_out[5]), 
+                      .regwrite_wb (regwrite_wb),
+											.fw_rs1_mem  (fw_rs1_mem),
+                      .fw_rs2_mem  (fw_rs2_mem),
+                      .fw_rs1_wb   (fw_rs1_wb),
+                      .fw_rs2_wb   (fw_rs2_wb));
+  // ##### 노정훈 : End   #####
+
 	// 1st source to ALU (alusrc1)
 	always@(*)
 	begin
     // ##### 노정훈 : Start #####
-		if      (ID_EX_control_out[13])	alusrc1[31:0]  =  pc_ex;
+    if      (fw_rs1_mem)  alusrc1[31:0] = alumem;
+    else if (fw_rs1_wb)   alusrc1[31:0] = rd_data;
+		else if (ID_EX_control_out[13])	alusrc1[31:0]  =  pc_ex;
 		else if (ID_EX_control_out[12]) 		alusrc1[31:0]  =  32'b0;
 		else          		alusrc1[31:0]  =  rs1_ex[31:0];
     // ##### 노정훈 : End   #####
@@ -492,7 +525,9 @@ module datapath(input         clk, reset,
 	always@(*)
 	begin
     // ##### 노정훈 : Start #####
-		if	     (ID_EX_control_out[13] | ID_EX_control_out[12])			alusrc2[31:0] = immu_ex[31:0];
+		if      (fw_rs2_mem)  alusrc2[31:0] = alumem;
+    else if (fw_rs2_wb)   alusrc2[31:0] = rd_data;
+		else if	(ID_EX_control_out[13] | ID_EX_control_out[12])			alusrc2[31:0] = immu_ex[31:0];
 		else if (ID_EX_control_out[8] & ID_EX_control_out[9])	alusrc2[31:0] = imms_ex[31:0];
 		else if (ID_EX_control_out[8])					alusrc2[31:0] = immi_ex[31:0];
 		else									alusrc2[31:0] = rs2_ex[31:0];

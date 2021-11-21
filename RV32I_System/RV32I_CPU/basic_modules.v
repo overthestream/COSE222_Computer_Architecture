@@ -528,4 +528,83 @@ module MEM_WB_FF (input [31:0] read_data, address, wb_pc,
 			.Q 		(wb_pc_out [31:0])
 		);	
 endmodule
+
+module forwarding_unit(input  [4:0] ex_rs1, ex_rs2, mem_rd, wb_rd,
+											 input  regwrite_mem, regwrite_wb,
+											 output reg fw_rs1_mem, fw_rs2_mem, fw_rs1_wb, fw_rs2_wb);
+	always@(*)
+	begin
+		if(regwrite_mem & ex_rs1 == mem_rd)
+		begin
+			fw_rs1_mem <= 1'b1;
+			fw_rs2_mem <= 1'b0;
+			fw_rs1_wb  <= 1'b0;
+			fw_re2_wb  <= 1'b0;
+		end
+		else if (regwrite_mem & ex_rs2 == mem_rd)
+		begin
+			fw_rs1_mem <= 1'b0;
+			fw_rs2_mem <= 1'b1;
+			fw_rs1_wb  <= 1'b0;
+			fw_re2_wb  <= 1'b0;
+		end
+		else if (regwrite_wb & ex_rs1 == wb_rd)
+		begin
+			fw_rs1_mem <= 1'b0;
+			fw_rs2_mem <= 1'b0;
+			fw_rs1_wb  <= 1'b1;
+			fw_re2_wb  <= 1'b0;
+		end
+		else if (regwrite_wb & ex_rs2 == wb_rd)
+		begin
+			fw_rs1_mem <= 1'b0;
+			fw_rs2_mem <= 1'b0;
+			fw_rs1_wb  <= 1'b0;
+			fw_re2_wb  <= 1'b1;
+		end
+		else
+		begin
+			fw_rs1_mem <= 1'b0;
+			fw_rs2_mem <= 1'b0;
+			fw_rs1_wb  <= 1'b0;
+			fw_re2_wb  <= 1'b0;
+		end
+	end
+endmodule
+
+module hazard_detection (input ex_memread,
+												 input [4:0] ex_rd, id_rs1, id_rs2,
+												 output pc_write, if_id_write, stall_control);
+												 
+	always@(*)
+	begin
+		if(ex_memread)
+		begin
+			if(ex_rd == id_rs1)
+			begin
+				pc_write <= 1;
+				if_id_write <= 1;
+				stall_control <=1;
+			end
+			else if(ex_rd == id_rs2)
+			begin
+				pc_write <= 1;
+				if_id_write <= 1;
+				stall_control <=1;
+			end
+			else
+			begin
+				pc_write <= 0;
+				if_id_write <= 0;
+				stall_control <=0;
+			end
+		end
+		else
+		begin
+			pc_write <= 0;
+			if_id_write <= 0;
+			stall_control <=0;
+		end	
+	end
+endmodule
 // ##### 노정훈 : End #####

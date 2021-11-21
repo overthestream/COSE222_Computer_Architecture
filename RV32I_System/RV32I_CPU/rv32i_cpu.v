@@ -24,10 +24,13 @@ module rv32i_cpu (
   wire        memtoreg, memwrite;
   wire        branch, jal, jalr;
 
-  assign Memwrite = memwrite ;
+
 
   // ##### 노정훈 : Start #####
-
+  wire [2:0] mem_wb_control_in, mem_wb_control_out;
+  assign mem_wb_control_in = {mem_control[1], mem_control[5], mem_control[4]};
+  wire [5:0] mem_control;
+  assign Memwrite = mem_control[3] ;
   wire [31:0] pc_if, inst_if, pc_id, inst_id, mem_alu, mem_read, wb_pc_mem, wb_pc_wb;
 
   assign pc_if = pc;
@@ -50,7 +53,9 @@ module rv32i_cpu (
     .address    (Memaddr),
     .rd         (wbreg),
     .wb_pc      (wb_pc_mem),
+    .control    (mem_wb_control_in),
 
+    .control_out(mem_wb_control_out),
     .wb_pc_out  (wb_pc_wb),
     .read_data_out (mem_read),
     .address_out (mem_alu),
@@ -83,16 +88,18 @@ module rv32i_cpu (
 		.reset			(reset),
 		.auipc			(auipc),
 		.lui				(lui),
-		.memtoreg		(memtoreg),
+    .memtoreg   (memtoreg),
 		.memwrite		(memwrite),
 		.branch			(branch),
 		.alusrc			(alusrc),
-		.regwrite		(regwrite),
+    .regwrite   (regwrite),
 		.jal				(jal),
 		.jalr				(jalr),
 		.alucontrol		(alucontrol),
 		.pc				(pc),
     // ##### 노정훈 : Start #####
+		.memtoreg_wb		(mem_wb_control_out[0]),
+		.regwrite_wb		(mem_wb_control_out[1]),
     .pc_id      (pc_id),
 		.inst				(inst_id),
     .rd_out     (wbreg),
@@ -102,6 +109,8 @@ module rv32i_cpu (
     .wb_rddata  (mem_read),
     .wb_rdalu   (mem_alu),
 		.alumem			(Memaddr), 
+    .mem_control(mem_control),
+    .jal_wb     (mem_wb_control_out[2]),
     // ##### 노정훈 : End   #####
 
 		.MemWdata		(MemWdata),
@@ -279,11 +288,13 @@ module datapath(input         clk, reset,
                 input         jalr,
 
                 // ##### 노정훈 : Start #####
+                input   jal_wb, memtoreg_wb, regwrite_wb
                 input  [31:0] pc_id, wb_rddata, wb_rdalu, wb_pc,
                 input  [4:0]  wb_rd,
                 output reg [31:0] pc,
                 output [31:0] alumem, wb_pc_out,
                 output [4:0]  rd_out,
+                output [5:0]  mem_control,
                 // ##### 노정훈 : End   #####
                 output [31:0] MemWdata,
                 input  [31:0] MemRdata);
@@ -326,6 +337,12 @@ module datapath(input         clk, reset,
 
   wire [31:0] branch_mem, jal_mem, jalr_mem;
 
+  wire [13:0] ID_EX_control_in, ID_EX_control_out;
+  assign ID_EX_control_in = {auipc, lui, regwrite, memtoreg, memwrite, alusrc, alucontrol [4:0], branch, jal, jalr};
+  
+  wire [5:0] EX_MEM_control_in, EX_MEM_control_out;
+  assign EX_MEM_control_in = {ID_EX_control_out[11:9],ID_EX_control_out[2:0]};
+  assign mem_control = EX_MEM_control_out;
   // ##### 노정훈 : End   #####
 
 
@@ -336,9 +353,11 @@ module datapath(input         clk, reset,
   assign f3blt  = (funct3 == 3'b100);
   assign f3bgeu = (funct3 == 3'b111);
 
-  assign beq_taken  =  branch & f3beq & Zflag_mem;
-  assign blt_taken  =  branch & f3blt & (Nflag != Vflag);
-  assign bgeu_taken =  branch & f3bgeu & Cflag;
+  // ##### 노정훈 : Start   #####
+  assign beq_taken  =  mem_control[2] & f3beq & Zflag_mem;
+  assign blt_taken  =  mem_control[2] & f3blt & (Nflag != Vflag);
+  assign bgeu_taken =  mem_control[2] & f3bgeu & Cflag;
+  // ##### 노정훈 : End   #####
 
   assign branch_dest = (pc_ex + se_br_imm_ex);
   assign jal_dest 	= (pc_ex + se_jal_imm_ex);
@@ -349,12 +368,14 @@ module datapath(input         clk, reset,
      if (reset)  pc <= 32'b0;
 	  else 
 	  begin
-	      if (beq_taken | blt_taken | bgeu_taken) // branch_taken
+	     if (beq_taken | blt_taken | bgeu_taken) // branch_taken
 				pc <= #`simdelay branch_mem;
-		   else if (jal) // jal
+       // ##### 노정훈 : Start   #####
+		   else if (mem_control[1]) // jal
 				pc <= #`simdelay jal_mem;
-       else if (jalr)
+       else if (mem_control[0])
         pc <= #`simdelay jalr_mem;
+        // ##### 노정훈 : End   #####
 		   else 
 				pc <= #`simdelay next_pc_mem;
 	  end
@@ -384,7 +405,9 @@ module datapath(input         clk, reset,
     .imm_i    (se_imm_itype),
     .imm_jal  (se_jal_imm),
     .imm_br   (se_br_imm),
+    .control  (ID_EX_control_in),
 
+    .control_out  (ID_EX_control_out),
     .pc_out   (pc_ex),
     .rs1_out  (rs1_ex),
     .rs2_out  (rs2_ex),
@@ -408,7 +431,9 @@ module datapath(input         clk, reset,
     .result     (alu_ex),
     .rd         (rd_ex),
     .zflag      (Zflag),
+    .control    (EX_MEM_control_in),
 
+    .control_out(EX_MEM_control_out),
     .pc_out     (next_pc_mem),
     .branch_out (branch_mem),
     .jal_out    (jal_mem),
@@ -426,7 +451,7 @@ module datapath(input         clk, reset,
   //
   regfile i_regfile(
     .clk			(clk),
-    .we			(regwrite),
+    .we			(regwrite_wb),
     .rs1			(rs1),
     .rs2			(rs2),
     .rd			(wb_rd),
@@ -444,8 +469,10 @@ module datapath(input         clk, reset,
 	alu i_alu(
 		.a			(alusrc1),
 		.b			(alusrc2),
-		.alucont	(alucontrol),
+    // ##### 노정훈 : Start #####
+		.alucont	(ID_EX_control_out[7:3]),
 		.result	(alu_ex),
+    // ##### 노정훈 : End   #####
 		.N			(Nflag),
 		.Z			(Zflag),
 		.C			(Cflag),
@@ -455,10 +482,8 @@ module datapath(input         clk, reset,
 	always@(*)
 	begin
     // ##### 노정훈 : Start #####
-		if      (auipc)	alusrc1[31:0]  =  pc_ex;
-    // ##### 노정훈 : End   #####
-		else if (lui) 		alusrc1[31:0]  =  32'b0;
-    // ##### 노정훈 : Start #####
+		if      (ID_EX_control_out[13])	alusrc1[31:0]  =  pc_ex;
+		else if (ID_EX_control_out[12]) 		alusrc1[31:0]  =  32'b0;
 		else          		alusrc1[31:0]  =  rs1_ex[31:0];
     // ##### 노정훈 : End   #####
 	end
@@ -467,9 +492,9 @@ module datapath(input         clk, reset,
 	always@(*)
 	begin
     // ##### 노정훈 : Start #####
-		if	     (auipc | lui)			alusrc2[31:0] = immu_ex[31:0];
-		else if (alusrc & memwrite)	alusrc2[31:0] = imms_ex[31:0];
-		else if (alusrc)					alusrc2[31:0] = immi_ex[31:0];
+		if	     (ID_EX_control_out[13] | ID_EX_control_out[12])			alusrc2[31:0] = immu_ex[31:0];
+		else if (ID_EX_control_out[8] & ID_EX_control_out[9])	alusrc2[31:0] = imms_ex[31:0];
+		else if (ID_EX_control_out[8])					alusrc2[31:0] = immi_ex[31:0];
 		else									alusrc2[31:0] = rs2_ex[31:0];
     // ##### 노정훈 : End   #####
 	end
@@ -482,9 +507,11 @@ module datapath(input         clk, reset,
 	// Data selection for writing to RF
 	always@(*)
 	begin
-		if	     (jal)			rd_data[31:0] = wb_pc;
-		else if (memtoreg)	rd_data[31:0] = wb_rddata;
+    // ##### 노정훈 : Start #####
+		if	     (jal_wb)			rd_data[31:0] = wb_pc;
+		else if (memtoreg_wb)	rd_data[31:0] = wb_rddata;
 		else						rd_data[31:0] = wb_rdalu;
+    // ##### 노정훈 : End   #####
 	end
 	
 endmodule

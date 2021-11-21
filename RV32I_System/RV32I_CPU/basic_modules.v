@@ -347,9 +347,18 @@ endmodule
 
 module ID_EX_FF (input  [31:0] pc, imm_u, imm_s, imm_i, rs1, rs2, imm_jal, imm_br,
 								 input 	[4:0]  rd,
+								 input  [13:0] control,
 								 input  clk, en,
+								 output [13:0] control_out,
 								 output [31:0] pc_out, imm_u_out, imm_s_out, imm_i_out, rs1_out, rs2_out, imm_jal_out, imm_br_out,
 								 output [4:0]  rd_out);
+	D_FF #(.WIDTH (14)) 
+		control_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(control [13:0]),
+			.Q 		(control_out [13:0])
+		);
 	D_FF #(.WIDTH (32)) 
 		pc_FF(
 			.clk	(clk),
@@ -403,11 +412,20 @@ endmodule
 
 module EX_MEM_FF (input [31:0] pc, branch, jal, jalr, wr_data_in, result,
 									input [4:0]  rd,
+									input [5:0]  control,
 									input zflag,
 									input clk, en,
 									output zflag_out,
 									output [4:0] rd_out,
+									output [5:0] control_out,
 									output [31:0] pc_out, branch_out, jal_out, jalr_out, wr_data_out, result_out);
+	D_FF #(.WIDTH (6)) 
+		control_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(control [5:0]),
+			.Q 		(control_out [5:0])
+		);
 	D_FF #(.WIDTH (32)) 
 		pc_FF(
 			.clk	(clk),
@@ -468,10 +486,19 @@ endmodule
 
 module MEM_WB_FF (input [31:0] read_data, address, wb_pc,
 									input [4:0]  rd,
+									input [2:0] control,
 									input clk,
+									output [2:0] control_out,
 									output [31:0] read_data_out, address_out, wb_pc_out, 
 									output [4:0] rd_out
 									);
+	D_FF #(.WIDTH (3))
+		control_FF(
+			.clk	(clk),
+			.en		(1'b1),
+			.D 		(control [2:0]),
+			.Q 		(control_out [2:0])
+		);
 	D_FF #(.WIDTH (5))
 		rd_FF(
 			.clk	(clk),

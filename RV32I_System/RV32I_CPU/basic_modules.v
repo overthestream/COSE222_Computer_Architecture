@@ -310,10 +310,9 @@ endmodule
 // ##### 노정훈 : Start #####
 
 module D_FF #(parameter WIDTH = 8)
-						(input clk, en
+						(input clk, en,
 						 input	[WIDTH-1:0] D,
-						 output	[WIDTH-1:0]	Q);
-	reg [WIDTH-1:0] Q;
+						 output reg	[WIDTH-1:0]	Q);
 
 	wire enabled_clk;
 
@@ -346,7 +345,7 @@ module IF_ID_FF (input [31:0] pc, inst,
 
 endmodule
 
-module ID_EX_FF (input  [31:0] pc, imm_u, imm_s, imm_i, rs1, rs2, imm_jal, imm_br
+module ID_EX_FF (input  [31:0] pc, imm_u, imm_s, imm_i, rs1, rs2, imm_jal, imm_br,
 								 input 	[4:0]  rd,
 								 input  clk, en,
 								 output [31:0] pc_out, imm_u_out, imm_s_out, imm_i_out, rs1_out, rs2_out, imm_jal_out, imm_br_out,
@@ -472,7 +471,7 @@ module MEM_WB_FF (input [31:0] read_data, address, wb_pc,
 									input clk,
 									output [31:0] read_data_out, address_out, wb_pc_out, 
 									output [4:0] rd_out
-									)
+									);
 	D_FF #(.WIDTH (5))
 		rd_FF(
 			.clk	(clk),

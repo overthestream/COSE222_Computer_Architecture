@@ -279,10 +279,10 @@ module datapath(input         clk, reset,
                 input         jalr,
 
                 // ##### 노정훈 : Start #####
-                input  [31:0] pc_id, wb_rddata, wb_rdalu, wb_pc
+                input  [31:0] pc_id, wb_rddata, wb_rdalu, wb_pc,
                 input  [4:0]  wb_rd,
-                output [31:0] pc,
-                output [31:0] alumem, wb_pc_out
+                output reg [31:0] pc,
+                output [31:0] alumem, wb_pc_out,
                 output [4:0]  rd_out,
                 // ##### 노정훈 : End   #####
                 output [31:0] MemWdata,

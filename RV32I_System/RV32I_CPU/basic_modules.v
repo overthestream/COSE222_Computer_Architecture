@@ -328,7 +328,7 @@ endmodule
 
 module IF_ID_FF (input [31:0] pc, inst,
 								 input clk, en,
-								 output [31:0] inst_out, pc_out)
+								 output [31:0] inst_out, pc_out);
 	D_FF #(.WIDTH (32)) 
 		pc_FF(
 			.clk	(clk),
@@ -350,7 +350,7 @@ module ID_EX_FF (input  [31:0] pc, imm_u, imm_s, imm_i, rs1, rs2, imm_jal, imm_b
 								 input 	[4:0]  rd,
 								 input  clk, en,
 								 output [31:0] pc_out, imm_u_out, imm_s_out, imm_i_out, rs1_out, rs2_out, imm_jal_out, imm_br_out,
-								 output [4:0]  rd_out)
+								 output [4:0]  rd_out);
 	D_FF #(.WIDTH (32)) 
 		pc_FF(
 			.clk	(clk),
@@ -402,4 +402,97 @@ module ID_EX_FF (input  [31:0] pc, imm_u, imm_s, imm_i, rs1, rs2, imm_jal, imm_b
 		);
 endmodule
 
+module EX_MEM_FF (input [31:0] pc, branch, jal, jalr, wr_data_in, result,
+									input [4:0]  rd,
+									input zflag,
+									input clk, en,
+									output zflag_out,
+									output [4:0] rd_out,
+									output [31:0] pc_out, branch_out, jal_out, jalr_out, wr_data_out, result_out);
+	D_FF #(.WIDTH (32)) 
+		pc_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(pc [31:0]),
+			.Q 		(pc_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		branch_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(branch [31:0]),
+			.Q 		(branch_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		jal_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(jal [31:0]),
+			.Q 		(jal_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		jalr_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(jalr [31:0]),
+			.Q 		(jalr_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		wr_data_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(wr_data_in [31:0]),
+			.Q 		(wr_data_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		result_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(result [31:0]),
+			.Q 		(result_out [31:0])
+		);
+	D_FF #(.WIDTH (5))
+		rd_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(rd [4:0]),
+			.Q 		(rd_out [4:0])
+		);
+	D_FF #(.WIDTH (1))
+		zflag_FF(
+			.clk	(clk),
+			.en		(en),
+			.D 		(zflag),
+			.Q 		(zflag_out)
+		);
+endmodule
+
+module MEM_WB_FF (input [31:0] read_data, address,
+									input [4:0]  rd,
+									input clk,
+									output [31:0] read_data_out, address_out,
+									output [4:0] rd_out
+									)
+	D_FF #(.WIDTH (5))
+		rd_FF(
+			.clk	(clk),
+			.en		(1'b1),
+			.D 		(rd [4:0]),
+			.Q 		(rd_out [4:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		read_data_FF(
+			.clk	(clk),
+			.en		(1'b1),
+			.D		(read_data [31:0]),
+			.Q 		(read_data_out [31:0])
+		);
+	D_FF #(.WIDTH (32)) 
+		address_FF(
+			.clk	(clk),
+			.en		(en),
+			.D		(address [31:0]),
+			.Q 		(address_out [31:0])
+		);	
+endmodule
 // ##### 노정훈 : End #####

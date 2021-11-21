@@ -10,7 +10,7 @@
 `define simdelay 1
 
 module rv32i_cpu (
-		      input         clk, reset,
+		        input         clk, reset,
             output [31:0] pc,		  		// program counter for instruction fetch
             input  [31:0] inst, 			// incoming instruction
             output        Memwrite, 	// 'memory write' control signal
@@ -28,12 +28,12 @@ module rv32i_cpu (
 
   // ##### 노정훈 : Start #####
 
-  wire [31:0] pc_if, inst_if, pc_id, inst_id;
+  wire [31:0] pc_if, inst_if, pc_id, inst_id, mem_alu, mem_read;
 
   assign pc_if = pc;
   assign inst_if = inst;
 
-  
+  wire [4:0] wbreg, wbreg_out;
 
   IF_ID_FF pl0(
      .pc   (pc_if),
@@ -42,6 +42,17 @@ module rv32i_cpu (
      .en   (1'b1),
      .pc_out   (pc_id[31:0]),
      .inst_out (inst_id[31:0])
+  );
+
+  MEM_WB_FF pl3(
+    .clk    (clk),
+    .read_data  (MemRdata),
+    .address    (Memaddr),
+    .rd         (wbreg),
+
+    .read_data_out (mem_read),
+    .address_out (mem_alu),
+    .rd_out     (wbreg_out)
   );
 
   // ##### 노정훈 : End   #####
@@ -82,6 +93,10 @@ module rv32i_cpu (
     // ##### 노정훈 : Start #####
     .pc_id      (pc_id),
 		.inst				(inst_id),
+    .rd_out     (wbreg),
+    .wb_rd      (wbreg_out),
+    .wb_rddata  (mem_read),
+    .wb_rdalu   (mem_alu),
     // ##### 노정훈 : End   #####
 		.aluout			(Memaddr), 
 		.MemWdata		(MemWdata),
@@ -259,10 +274,12 @@ module datapath(input         clk, reset,
                 input         jalr,
 
                 // ##### 노정훈 : Start #####
-                input  [31:0] pc_id,
+                input  [31:0] pc_id, wb_rddata, wb_rdalu
+                input  [4:0]  wb_rd,
                 output [31:0] pc,
+                output [31:0] alumem,
+                output [4:0]  rd_out,
                 // ##### 노정훈 : End   #####
-                output [31:0] aluout,
                 output [31:0] MemWdata,
                 input  [31:0] MemRdata);
 
@@ -296,9 +313,14 @@ module datapath(input         clk, reset,
   wire [4:0] rd_ex;
 
   reg [31:0] pc_mem_in;
-  wire z_ex;
-  assign z_ex = Zflag;
   
+  wire [31:0] next_pc_ex, next_pc_mem;
+  assign next_pc_ex = pc_ex+4;
+  
+  wire Zflag_mem;
+
+  wire [31:0] branch_mem, jal_mem, jalr_mem;
+
   // ##### 노정훈 : End   #####
 
 
@@ -309,7 +331,7 @@ module datapath(input         clk, reset,
   assign f3blt  = (funct3 == 3'b100);
   assign f3bgeu = (funct3 == 3'b111);
 
-  assign beq_taken  =  branch & f3beq & Zflag;
+  assign beq_taken  =  branch & f3beq & Zflag_mem;
   assign blt_taken  =  branch & f3blt & (Nflag != Vflag);
   assign bgeu_taken =  branch & f3bgeu & Cflag;
 
@@ -319,17 +341,17 @@ module datapath(input         clk, reset,
 
   always @(posedge clk, posedge reset)
   begin
-     if (reset)  pc_mem_in <= 32'b0;
+     if (reset)  pc <= 32'b0;
 	  else 
 	  begin
 	      if (beq_taken | blt_taken | bgeu_taken) // branch_taken
-				pc_mem_in <= #`simdelay branch_dest;
+				pc <= #`simdelay branch_mem;
 		   else if (jal) // jal
-				pc_mem_in <= #`simdelay jal_dest;
+				pc <= #`simdelay jal_mem;
        else if (jalr)
-        pc_mem_in <= #`simdelay jalr_dest;
+        pc <= #`simdelay jalr_mem;
 		   else 
-				pc_mem_in <= #`simdelay (pc_ex + 4);
+				pc <= #`simdelay next_pc_mem;
 	  end
   end
 
@@ -368,6 +390,29 @@ module datapath(input         clk, reset,
     .imm_jal_out (se_jal_imm_ex),
     .imm_br_out  (se_br_imm_ex)
   );
+
+  EX_MEM_FF pl2(
+    .clk   (clk),
+    .end   (1'b1),
+
+    .pc         (next_pc_ex),
+    .branch     (branch_dest),
+    .jal        (jal_dest),
+    .jalr       (jalr_dest),
+    .wr_data_in (rs2_ex),
+    .result     (aluout),
+    .rd         (rd_ex),
+    .zflag      (Zflag),
+
+    .pc_out     (next_pc_mem),
+    .branch_out (branch_mem),
+    .jal_out    (jal_mem),
+    .jalr_out   (jalr_mem),
+    .wr_data_out(MemWdata),
+    .result_out (alumem),
+    .rd_out     (rd_out),
+    .zflag_out  (Zflag_mem)
+  );
   // ##### 노정훈 : End   #####
 
 
@@ -379,14 +424,14 @@ module datapath(input         clk, reset,
     .we			(regwrite),
     .rs1			(rs1),
     .rs2			(rs2),
-    .rd			(rd),
-    .rd_data	(rd_data),
+    .rd			(wb_rd),
+    .rd_data	(wb_rddata),
     .rs1_data	(rs1_data),
     .rs2_data	(rs2_data));
 
-
-	assign MemWdata = rs2_data;
-
+  // ##### 노정훈 : Start   ######
+	//assign MemWdata = rs2_data;
+  // ##### 노정훈 : End   #####
 
 	//
 	// ALU 

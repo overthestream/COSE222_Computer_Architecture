@@ -16,8 +16,11 @@ entity datapath is
         jal             : in     vl_logic;
         jalr            : in     vl_logic;
         pc              : out    vl_logic_vector(31 downto 0);
-        aluout          : out    vl_logic_vector(31 downto 0);
         MemWdata        : out    vl_logic_vector(31 downto 0);
-        MemRdata        : in     vl_logic_vector(31 downto 0)
+        MemRdata        : in     vl_logic_vector(31 downto 0);
+        IF_ID_memread   : in     vl_logic;
+        EX_MEM_aluout   : out    vl_logic_vector(31 downto 0);
+        IF_ID_inst      : out    vl_logic_vector(31 downto 0);
+        EX_MEM_memwrite : out    vl_logic
     );
 end datapath;

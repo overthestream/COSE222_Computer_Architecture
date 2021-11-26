@@ -254,7 +254,6 @@ module datapath(input         clk, reset,
                 output reg [31:0] EX_MEM_aluout,
                 output reg [31:0] IF_ID_inst,
                 output reg        EX_MEM_memwrite
-
                 // ############################################## 노정훈 end
                 );
 
@@ -289,6 +288,11 @@ module datapath(input         clk, reset,
     // wire for data from register file
     wire [31:0] rf_rs1_data, rf_rs2_data;
 
+    // wire for flush IF 
+    wire        IF_flush;
+    assign      IF_flush = ((inst[6:0] == 7'b1101111 | inst[6:0] == 7'b1100111 | inst[6:0] == 7'b1100011) | (IF_ID_inst[6:0] == 7'b1101111 | IF_ID_inst[6:0] == 7'b1100111 | IF_ID_inst[6:0] == 7'b1100011));
+    reg         flush_flag;
+
     // IF_ID FF 
     reg [31:0] IF_ID_pc;
     always@(posedge clk)
@@ -297,6 +301,13 @@ module datapath(input         clk, reset,
         begin
           IF_ID_inst <= inst;
           IF_ID_pc   <= pc;
+          flush_flag <= IF_flush;
+        end
+        else if(IF_flush | flush_flag)
+        begin
+          flush_flag <= IF_flush;
+          IF_ID_inst <= 0;
+          IF_ID_pc   <= 0;
         end
     end
 
@@ -305,9 +316,9 @@ module datapath(input         clk, reset,
     assign rs2 = IF_ID_inst[24:20];
     assign rd  = IF_ID_inst[11:7];
 
-    reg        ID_EX_auipc, ID_EX_lui, ID_EX_regwrite, ID_EX_memtoreg, ID_EX_memwrite, ID_EX_memread, ID_EX_alusrc;
+    reg        ID_EX_auipc, ID_EX_lui, ID_EX_regwrite, ID_EX_memtoreg, ID_EX_memwrite, ID_EX_memread, ID_EX_alusrc, ID_EX_branch, ID_EX_jal, ID_EX_jalr;
     reg [4:0]  ID_EX_alucont, ID_EX_rs1, ID_EX_rs2, ID_EX_rd;
-    reg [31:0] ID_EX_rs1_data, ID_EX_rs2_data, ID_EX_pc, ID_EX_imm_u, ID_EX_imm_i, ID_EX_imm_s;
+    reg [31:0] ID_EX_rs1_data, ID_EX_rs2_data, ID_EX_pc, ID_EX_imm_u, ID_EX_imm_i, ID_EX_imm_s, ID_EX_inst, ID_EX_imm_b, ID_EX_imm_j;
     always@(posedge clk)
     begin
         if(stall)
@@ -319,12 +330,16 @@ module datapath(input         clk, reset,
           ID_EX_memwrite    <= 1'b0;
           ID_EX_memread     <= 1'b0;
           ID_EX_alusrc      <= 1'b0;
+          ID_EX_branch      <= 1'b0;
+          ID_EX_jal         <= 1'b0;
+          ID_EX_jalr        <= 1'b0;
           ID_EX_alucont     <= 5'b00000;
           ID_EX_rs1         <= 5'b00000;
           ID_EX_rs2         <= 5'b00000;
           ID_EX_rd          <= 5'b00000;
           ID_EX_rs1_data    <= 32'b0;
           ID_EX_rs2_data    <= 32'b0;
+          ID_EX_inst        <= 32'b0;
         end
         else
         begin
@@ -345,13 +360,19 @@ module datapath(input         clk, reset,
           ID_EX_imm_u           <= auipc_lui_imm;
           ID_EX_imm_i           <= se_imm_itype;
           ID_EX_imm_s           <= se_imm_stype;
+          ID_EX_inst            <= IF_ID_inst;
+          ID_EX_branch          <= branch;
+          ID_EX_jal             <= jal;
+          ID_EX_jalr            <= jalr;
+          ID_EX_imm_b           <= se_br_imm;
+          ID_EX_imm_j           <= se_jal_imm;
         end
     end
 
     // EX_MEM FF
     reg [31:0] EX_MEM_rs2_data, EX_MEM_pc;
     reg [4:0]  EX_MEM_rd;
-    reg        EX_MEM_regwrite, EX_MEM_memtoreg, EX_MEM_memread;
+    reg        EX_MEM_regwrite, EX_MEM_memtoreg, EX_MEM_memread, EX_MEM_jal;
     always @(posedge clk)
     begin
       EX_MEM_rs2_data   <= ID_EX_rs2_data;
@@ -362,12 +383,13 @@ module datapath(input         clk, reset,
       EX_MEM_memtoreg   <= ID_EX_memtoreg;
       EX_MEM_memwrite   <= ID_EX_memwrite;
       EX_MEM_memread    <= ID_EX_memread;
+      EX_MEM_jal        <= ID_EX_jal;
     end
 
     // MEM_WB FF 
     reg [31:0] MEM_WB_aluout, MEM_WB_MemRdata;
     reg [4:0]  MEM_WB_rd;
-    reg        MEM_WB_regwrite, MEM_WB_memtoreg;
+    reg        MEM_WB_regwrite, MEM_WB_memtoreg, MEM_WB_jal;
     always @(posedge clk)
     begin
       MEM_WB_aluout     <= EX_MEM_aluout;
@@ -375,6 +397,7 @@ module datapath(input         clk, reset,
       MEM_WB_rd         <= EX_MEM_rd;
       MEM_WB_regwrite   <= EX_MEM_regwrite;
       MEM_WB_memtoreg   <= EX_MEM_memtoreg;
+      MEM_WB_jal        <= EX_MEM_jal;
     end
 
     // Forwarding Unit  
@@ -406,12 +429,10 @@ module datapath(input         clk, reset,
 
     // Hazard Detection Unit 
     assign stall = (ID_EX_memread) & ((ID_EX_rd == rs1) | (ID_EX_rd == rs2));
+  ///////////////////////
+  
 
-
-  //######################################################### 노정훈 end
-
-
-  assign funct3 = inst[14:12];
+  assign funct3 = ID_EX_inst[14:12];
 
   //
   // PC (Program Counter) logic 
@@ -420,14 +441,15 @@ module datapath(input         clk, reset,
   assign f3blt  = (funct3 == 3'b100);
   assign f3bgeu = (funct3 == 3'b111);
 
-  assign beq_taken   =  branch & f3beq & Zflag;
-  assign blt_taken   =  branch & f3blt & (Nflag != Vflag);
-  assign bgeu_taken  =  branch & f3bgeu & Cflag;
+  assign beq_taken   =  ID_EX_branch & f3beq & Zflag;
+  assign blt_taken   =  ID_EX_branch & f3blt & (Nflag != Vflag);
+  assign bgeu_taken  =  ID_EX_branch & f3bgeu & Cflag;
 
-  assign branch_dest = (pc + se_br_imm);
-  assign jal_dest 	 = (pc + se_jal_imm);
+  assign branch_dest = (ID_EX_pc + ID_EX_imm_b);
+  assign jal_dest 	 = (ID_EX_pc + ID_EX_imm_j);
   assign jalr_dest   = aluout[31:0];
   
+  //######################################################### 노정훈 end
 
   always @(posedge clk, posedge reset)
   begin
@@ -436,9 +458,9 @@ module datapath(input         clk, reset,
 	  begin
 	    if (beq_taken | blt_taken | bgeu_taken) // branch_taken
 			  pc <= #`simdelay branch_dest;
-		  else if (jal) // jal
+		  else if (ID_EX_jal) // jal
 				pc <= #`simdelay jal_dest;
-      else if (jalr)
+      else if (ID_EX_jalr)
         pc <= #`simdelay jalr_dest;
       // ######################## stall 추가
 		  else if (stall)
@@ -516,7 +538,7 @@ module datapath(input         clk, reset,
 	// Data selection for writing to RF
 	always@(*)
 	begin 
-		if	    (jal)	    	    	rd_data[31:0] = pc + 4;
+		if	    (MEM_WB_jal)	    rd_data[31:0] = pc + 4;
 		else if (MEM_WB_memtoreg)	rd_data[31:0] = MEM_WB_MemRdata; 
 		else					          	rd_data[31:0] = MEM_WB_aluout; 
 	end

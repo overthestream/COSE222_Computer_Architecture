@@ -1,4 +1,3 @@
-   
 //
 //  Author: Prof. Taeweon Suh
 //          Computer Science & Engineering
@@ -275,6 +274,10 @@ module datapath(input         clk, reset,
   wire [31:0] branch_dest, jal_dest, jalr_dest;
   wire	  	  Nflag, Zflag, Cflag, Vflag;
   wire  		  f3beq, f3blt, f3bgeu;
+  // ##################################### bne
+  wire        f3bne;
+  wire        bne_taken;
+  // ###################################### 
   wire  		  beq_taken;
   wire  		  blt_taken;
   wire        bgeu_taken;
@@ -289,26 +292,36 @@ module datapath(input         clk, reset,
     wire [31:0] rf_rs1_data, rf_rs2_data;
 
     // wire for flush IF 
-    wire        IF_flush;
-    assign      IF_flush = ((inst[6:0] == 7'b1101111 | inst[6:0] == 7'b1100111 | inst[6:0] == 7'b1100011) | (IF_ID_inst[6:0] == 7'b1101111 | IF_ID_inst[6:0] == 7'b1100111 | IF_ID_inst[6:0] == 7'b1100011));
+    reg         IF_flush;
     reg         flush_flag;
 
-    // IF_ID FF 
-    reg [31:0] IF_ID_pc;
     always@(posedge clk)
-    begin 
-        if(~stall)
+    begin
+      if(flush_flag)
+        IF_flush <= 1'b0;
+      else if(inst[6:0] == 7'b1101111 | inst[6:0] == 7'b1100111 | inst[6:0] == 7'b1100011)
+        IF_flush <= 1'b1;
+      else 
+        IF_flush <= 1'b0;
+    end
+
+    // IF_ID FF
+    reg [31:0]  IF_ID_pc;
+    always@(posedge clk)
+    begin
+        if(stall)
         begin
-          IF_ID_inst <= inst;
-          IF_ID_pc   <= pc;
-          flush_flag <= IF_flush;
+          IF_ID_inst <= IF_ID_inst;
+          IF_ID_pc   <= IF_ID_pc;
         end
         else if(IF_flush | flush_flag)
         begin
-          flush_flag <= IF_flush;
           IF_ID_inst <= 0;
           IF_ID_pc   <= 0;
         end
+      else 
+          IF_ID_inst  <= inst;
+          IF_ID_pc    <= pc;
     end
 
     // ID_EX FF
@@ -340,6 +353,7 @@ module datapath(input         clk, reset,
           ID_EX_rs1_data    <= 32'b0;
           ID_EX_rs2_data    <= 32'b0;
           ID_EX_inst        <= 32'b0;
+          flush_flag        <= 1'b0;
         end
         else
         begin
@@ -366,6 +380,7 @@ module datapath(input         clk, reset,
           ID_EX_jalr            <= jalr;
           ID_EX_imm_b           <= se_br_imm;
           ID_EX_imm_j           <= se_jal_imm;
+          flush_flag            <= IF_flush;
         end
     end
 
@@ -387,7 +402,7 @@ module datapath(input         clk, reset,
     end
 
     // MEM_WB FF 
-    reg [31:0] MEM_WB_aluout, MEM_WB_MemRdata;
+    reg [31:0] MEM_WB_aluout, MEM_WB_MemRdata, MEM_WB_pc;
     reg [4:0]  MEM_WB_rd;
     reg        MEM_WB_regwrite, MEM_WB_memtoreg, MEM_WB_jal;
     always @(posedge clk)
@@ -398,6 +413,7 @@ module datapath(input         clk, reset,
       MEM_WB_regwrite   <= EX_MEM_regwrite;
       MEM_WB_memtoreg   <= EX_MEM_memtoreg;
       MEM_WB_jal        <= EX_MEM_jal;
+      MEM_WB_pc         <= EX_MEM_pc;
     end
 
     // Forwarding Unit  
@@ -440,10 +456,12 @@ module datapath(input         clk, reset,
   assign f3beq  = (funct3 == 3'b000);
   assign f3blt  = (funct3 == 3'b100);
   assign f3bgeu = (funct3 == 3'b111);
+  assign f3bne  = (funct3 == 3'b001);
 
-  assign beq_taken   =  ID_EX_branch & f3beq & Zflag;
-  assign blt_taken   =  ID_EX_branch & f3blt & (Nflag != Vflag);
+  assign beq_taken   =  ID_EX_branch & f3beq  & Zflag;
+  assign blt_taken   =  ID_EX_branch & f3blt  & (Nflag != Vflag);
   assign bgeu_taken  =  ID_EX_branch & f3bgeu & Cflag;
+  assign bne_taken   =  ID_EX_branch & f3bne  & (~Zflag);
 
   assign branch_dest = (ID_EX_pc + ID_EX_imm_b);
   assign jal_dest 	 = (ID_EX_pc + ID_EX_imm_j);
@@ -456,14 +474,14 @@ module datapath(input         clk, reset,
     if (reset)  pc <= 32'b0;
 	  else 
 	  begin
-	    if (beq_taken | blt_taken | bgeu_taken) // branch_taken
+	    if (beq_taken | blt_taken | bgeu_taken | bne_taken) // branch_taken
 			  pc <= #`simdelay branch_dest;
 		  else if (ID_EX_jal) // jal
 				pc <= #`simdelay jal_dest;
       else if (ID_EX_jalr)
         pc <= #`simdelay jalr_dest;
       // ######################## stall 추가
-		  else if (stall)
+		  else if (stall | IF_flush | flush_flag)
         pc <= #`simdelay pc;
       //##################
       else
@@ -475,11 +493,11 @@ module datapath(input         clk, reset,
 
   // JAL immediate
   assign jal_imm[20:1]    = {IF_ID_inst[31], IF_ID_inst[19:12], IF_ID_inst[20], IF_ID_inst[30:21]};
-  assign se_jal_imm[31:0] = {{11{jal_imm[20]}},jal_imm[20:1],1'b0};
+  assign se_jal_imm[31:0] = {{11{jal_imm[20]}}, jal_imm[20:1],1'b0};
 
   // Branch immediate
   assign br_imm[12:1]     = {IF_ID_inst[31], IF_ID_inst[7], IF_ID_inst[30:25], IF_ID_inst[11:8]};
-  assign se_br_imm[31:0]  = {{19{br_imm[12]}},br_imm[12:1],1'b0};
+  assign se_br_imm[31:0]  = {{19{br_imm[12]}}, br_imm[12:1],1'b0};
 
   // 
   // Register File 
@@ -532,13 +550,13 @@ module datapath(input         clk, reset,
 	
 	assign se_imm_itype[31:0]  = {{20{IF_ID_inst[31]}}, IF_ID_inst[31:20]};
 	assign se_imm_stype[31:0]  = {{20{IF_ID_inst[31]}}, IF_ID_inst[31:25], IF_ID_inst[11:7]};
-	assign auipc_lui_imm[31:0] = {IF_ID_inst[31:12],12'b0};
+	assign auipc_lui_imm[31:0] = {IF_ID_inst[31:12], 12'b0};
 
 
 	// Data selection for writing to RF
 	always@(*)
 	begin 
-		if	    (MEM_WB_jal)	    rd_data[31:0] = pc + 4;
+		if	    (MEM_WB_jal)	    rd_data[31:0] = MEM_WB_pc + 4;
 		else if (MEM_WB_memtoreg)	rd_data[31:0] = MEM_WB_MemRdata; 
 		else					          	rd_data[31:0] = MEM_WB_aluout; 
 	end

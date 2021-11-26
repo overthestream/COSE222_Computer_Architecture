@@ -4,7 +4,7 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
-		Device PartName(EP3C16F484) Path("C:/Users/njhnj/Desktop/final/COSE222_Computer_Architecture-main/RV32I_System_Syn/output_files/") File("RV32I_System.sof") MfrSpec(OpMask(1));
+		Device PartName(EP3C16F484) Path("C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System_Syn/output_files/") File("RV32I_System.sof") MfrSpec(OpMask(1));
 
 ChainEnd;
 

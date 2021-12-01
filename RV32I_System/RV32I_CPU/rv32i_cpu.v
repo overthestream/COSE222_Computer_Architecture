@@ -278,6 +278,11 @@ module datapath(input         clk, reset,
   wire        f3bne;
   wire        bne_taken;
   // ###################################### 
+
+  // ############################################ 노정훈 last milestone 
+  wire        f3bltu, f3bge;
+  wire        bltu_taken, bge_taken;
+  // ############################################
   wire  		  beq_taken;
   wire  		  blt_taken;
   wire        bgeu_taken;
@@ -297,7 +302,9 @@ module datapath(input         clk, reset,
 
     always@(posedge clk)
     begin
-      if(flush_flag)
+      if     (stall)
+        IF_flush <= IF_flush;
+      else if(flush_flag)
         IF_flush <= 1'b0;
       else if(inst[6:0] == 7'b1101111 | inst[6:0] == 7'b1100111 | inst[6:0] == 7'b1100011)
         IF_flush <= 1'b1;
@@ -309,19 +316,21 @@ module datapath(input         clk, reset,
     reg [31:0]  IF_ID_pc;
     always@(posedge clk)
     begin
-        if(stall)
+      if(stall)
         begin
           IF_ID_inst <= IF_ID_inst;
           IF_ID_pc   <= IF_ID_pc;
         end
-        else if(IF_flush | flush_flag)
+      else if(IF_flush || flush_flag)
         begin
           IF_ID_inst <= 0;
           IF_ID_pc   <= 0;
         end
-      else 
+      else
+      begin 
           IF_ID_inst  <= inst;
           IF_ID_pc    <= pc;
+      end
     end
 
     // ID_EX FF
@@ -458,6 +467,19 @@ module datapath(input         clk, reset,
   assign f3bgeu = (funct3 == 3'b111);
   assign f3bne  = (funct3 == 3'b001);
 
+  // ###########################################################
+
+  wire   branch_taken;
+  assign branch_taken = (beq_taken | bne_taken | bge_taken | blt_taken | bgeu_taken | bltu_taken);
+
+  assign f3bge  = (funct3 == 3'b101);
+  assign f3bltu = (funct3 == 3'b110);
+
+  assign bge_taken   =  ID_EX_branch & f3bge  & (Nflag == Vflag);
+  assign bltu_taken  =  ID_EX_branch & f3bltu & (~Cflag);
+
+  // ###########################################################
+
   assign beq_taken   =  ID_EX_branch & f3beq  & Zflag;
   assign blt_taken   =  ID_EX_branch & f3blt  & (Nflag != Vflag);
   assign bgeu_taken  =  ID_EX_branch & f3bgeu & Cflag;
@@ -474,9 +496,9 @@ module datapath(input         clk, reset,
     if (reset)  pc <= 32'b0;
 	  else 
 	  begin
-	    if (beq_taken | blt_taken | bgeu_taken | bne_taken) // branch_taken
+	    if      (branch_taken)          // branch_taken
 			  pc <= #`simdelay branch_dest;
-		  else if (ID_EX_jal) // jal
+		  else if (ID_EX_jal)             // jal
 				pc <= #`simdelay jal_dest;
       else if (ID_EX_jalr)
         pc <= #`simdelay jalr_dest;

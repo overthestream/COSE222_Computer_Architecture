@@ -27,14 +27,14 @@ Z14 !s100 4`00PZFK?C@k<4Xd80bbU0
 Z15 IBz]1V6BDD^3EAEchfCH`b1
 Z16 V]J[nU[1hnP5TbJMP^fIol0
 Z17 dC:\Users\njhnj\Desktop\COSE222_Computer_Architecture-main\RV32I_System_Sim
-Z18 w1637908001
+Z18 w1637913964
 Z19 8C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/basic_modules.v
 Z20 FC:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/basic_modules.v
 Z21 L0 291
 R8
 r1
 31
-Z22 !s108 1637912792.892000
+Z22 !s108 1638356818.498000
 Z23 !s107 C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/basic_modules.v|
 Z24 !s90 -reportprogress|300|-work|work|C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/basic_modules.v|
 R12
@@ -774,7 +774,7 @@ Z191 !s100 SZdoa1eUi4c`R@NI724d13
 Z192 IklSZBm3=44JYSQe6=5Yzo0
 Z193 V<MTfeadkAUVW_zEX58RE50
 R17
-Z194 w1637912786
+Z194 w1638356809
 Z195 8C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/rv32i_cpu.v
 Z196 FC:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/rv32i_cpu.v
 Z197 L0 175
@@ -782,7 +782,7 @@ R8
 r1
 !s85 0
 31
-Z198 !s108 1637912793.027000
+Z198 !s108 1638356818.642000
 Z199 !s107 C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/rv32i_cpu.v|
 Z200 !s90 -reportprogress|30|-work|work|C:/Users/njhnj/Desktop/COSE222_Computer_Architecture-main/RV32I_System/RV32I_CPU/rv32i_cpu.v|
 !s101 -O0
@@ -961,8 +961,8 @@ Z243 n@d_@f@f
 !s101 -O0
 vdatapath
 !i10b 1
-!s100 Jmkm:SA=E39:imK=07>o11
-IbK9IeP>kC21SbU[;33aUN3
+!s100 <[VoWfGBKonTfM:N]Oj5h2
+Ib>bhoU7K1<Ekk<;d<E;LO2
 Z244 Vb`hIm>M<SQz5h2W?e7R5W1
 R17
 R194

@@ -1,10 +1,10 @@
-Analysis & Synthesis Status : Successful - Fri Nov 26 16:52:25 2021
+Analysis & Synthesis Status : Successful - Wed Dec 01 20:09:20 2021
 Quartus II 64-Bit Version : 13.1.0 Build 162 10/23/2013 SJ Web Edition
 Revision Name : RV32I_System
 Top-level Entity Name : RV32I_System
 Family : Cyclone III
-Total logic elements : 4,059
-    Total combinational functions : 2,805
+Total logic elements : 4,028
+    Total combinational functions : 2,806
     Dedicated logic registers : 1,736
 Total registers : 1736
 Total pins : 52
